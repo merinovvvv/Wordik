@@ -9,6 +9,9 @@ import SwiftUI
 
 typealias Letter = Character
 
+extension Letter {
+    static let missing = Character(" ")
+}
 
 struct LetterView: View {
     // MARK: Constants

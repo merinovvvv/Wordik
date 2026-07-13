@@ -16,24 +16,46 @@ struct Wordik {
     
     var letterChoices: [Letter] = Array("QWERTYUIOPASDFGHJKLZXCVBNM")
     
+    var isActive: Bool { !attempts.contains(guess) && guess.letters.allSatisfy({$0 != Letter.missing}) }
+    var isOver: Bool {
+        attempts.last?.letters == masterWord.letters
+    }
+    
     init(wordLength: Int, words: Words = .shared) {
         self.wordLength = wordLength
         let randomWord = words.random(length: wordLength) ?? "AWAIT"
         masterWord = Word(kind: .masterWord(isHidden: true), letters: Array(randomWord))
-        guess = Word(kind: .guess, letters: Array(repeating: Character(" "), count: wordLength))
+        guess = Word(kind: .guess, letters: Array(repeating: Letter.missing, count: wordLength))
     }
     
     mutating func attemptGuess(_ words: Words = .shared) {
-        guard words.contains(String(guess.letters)) else { return }
+        guard words.contains(String(guess.letters)) else {
+            guess.reset()
+            return
+        }
         
         var attempt = guess
         attempt.kind = .attempt(guess.match(against: masterWord))
         attempts.append(attempt)
         guess.reset()
+        if isOver {
+            masterWord.kind = .masterWord(isHidden: false)
+        }
+    }
+    
+    mutating func useHint() {
+        let wrongIndices = guess.letters.indices.filter { guess.letters[$0] != masterWord.letters[$0] }
+        guard let randomIndex = wrongIndices.randomElement() else { return }
+        guess.letters[randomIndex] = masterWord.letters[randomIndex]
     }
     
     mutating func changeGuessLetter(_ letter: Letter, at index: Int) {
         guard index < wordLength else { return }
         guess.letters[index] = letter
+    }
+    
+    mutating func restart() {
+        let newWordLength = [3, 4, 5, 6].randomElement() ?? 4
+        self = Wordik(wordLength: newWordLength)
     }
 }

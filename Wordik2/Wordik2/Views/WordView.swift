@@ -38,7 +38,20 @@ struct WordView<HelperView>: View where HelperView: View {
                 LetterView(letter: word.letters[index])
                     .background {
                         if index == selection, word.kind == .guess {
-                            Circle().foregroundStyle(.gray.opacity(0.3))
+                            Circle().foregroundStyle(.black.opacity(0.3))
+                        } else if let match = word.matches?[index] {
+                            switch match {
+                            case .exact:   Circle().foregroundColor(.green)
+                            case .inexact: Circle().foregroundColor(.orange)
+                            case .nomatch: Circle().foregroundColor(.clear)
+                            }
+                        } else {
+                            Circle().foregroundColor(.clear)
+                        }
+                    }
+                    .overlay {
+                        if word.kind == .masterWord(isHidden: true) {
+                            Circle().foregroundStyle(.black)
                         }
                     }
                     .onTapGesture {

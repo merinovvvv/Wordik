@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Word {
+struct Word: Equatable {
     enum Kind: Equatable {
         case masterWord(isHidden: Bool)
         case guess
@@ -18,13 +18,20 @@ struct Word {
     var kind: Kind
     var letters: [Letter]
     
+    var matches: [Match]? {
+        switch kind {
+        case .attempt(let matches): return matches
+        default: return nil
+        }
+    }
+    
     init(kind: Kind, letters: [Letter]) {
         self.kind = kind
         self.letters = letters
     }
     
     mutating func reset() {
-        letters = Array(repeating: Character(""), count: letters.count)
+        letters = Array(repeating: Letter.missing, count: letters.count)
     }
     
     func match(against otherWord: Word) -> [Match] {
