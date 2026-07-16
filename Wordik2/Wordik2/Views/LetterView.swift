@@ -33,7 +33,7 @@ struct LetterView: View {
     // MARK: - Body
     var body: some View {
         areaShape
-            .foregroundStyle(.black)
+            .foregroundStyle(.primary)
             .font(.system(size: Font.maximumSize))
             .minimumScaleFactor(Font.minumumScaleFactor)
             .lineLimit(1)
@@ -42,7 +42,7 @@ struct LetterView: View {
             .aspectRatio(1, contentMode: .fit)
             .overlay(
                 Circle()
-                    .strokeBorder(.black)
+                    .strokeBorder(.primary)
             )
             .contentShape(Circle())
     }

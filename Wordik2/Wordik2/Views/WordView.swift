@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-enum Match {
+enum Match: Equatable {
     case exact
     case inexact
     case nomatch
@@ -20,6 +20,9 @@ struct WordView<HelperView>: View where HelperView: View {
     
     // MARK: Data Shared
     @Binding var selection: Int
+    
+    // MARK: Data Owned by Me
+    @Namespace private var selectionNamespace
     
     init(
         word: Word,
@@ -37,21 +40,26 @@ struct WordView<HelperView>: View where HelperView: View {
             ForEach(word.letters.indices, id: \.self) { index in
                 LetterView(letter: word.letters[index])
                     .background {
-                        if index == selection, word.kind == .guess {
-                            Circle().foregroundStyle(.black.opacity(0.3))
-                        } else if let match = word.matches?[index] {
-                            switch match {
-                            case .exact:   Circle().foregroundColor(.green)
-                            case .inexact: Circle().foregroundColor(.orange)
-                            case .nomatch: Circle().foregroundColor(.clear)
+                        Group {
+                            if index == selection, word.kind == .guess {
+                                Circle()
+                                    .foregroundStyle(.primary.opacity(0.3))
+                                    .matchedGeometryEffect(id: "selection", in: selectionNamespace)
+                            } else if let match = word.matches?[index] {
+                                switch match {
+                                case .exact: Circle().foregroundColor(.green)
+                                case .inexact: Circle().foregroundColor(.orange)
+                                case .nomatch: Circle().foregroundColor(.clear)
+                                }
+                            } else {
+                                Circle().foregroundColor(.clear)
                             }
-                        } else {
-                            Circle().foregroundColor(.clear)
                         }
+                        .animation(.selection, value: selection)
                     }
                     .overlay {
                         if word.kind == .masterWord(isHidden: true) {
-                            Circle().foregroundStyle(.black)
+                            Circle().foregroundStyle(.primary)
                         }
                     }
                     .onTapGesture {

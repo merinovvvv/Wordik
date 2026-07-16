@@ -14,8 +14,8 @@ struct WordikView: View {
     }
     
     struct HintButton {
-        static let maxFontSize: CGFloat = 80
-        static let minFontSize: CGFloat = 8
+        static let maxFontSize: CGFloat = 40
+        static let minFontSize: CGFloat = 4
         static let minimumScaleFactor: CGFloat = minFontSize / maxFontSize
     }
     
@@ -24,63 +24,136 @@ struct WordikView: View {
     }
     
     // MARK: Data Owned by Me
-    @State private var game = Wordik(wordLength: [3, 4, 5, 6].randomElement() ?? 4)
+    @State private var game: Wordik?
     @State private var selection = 0
+    @State private var guessing: Bool = false
+    @State private var restarting: Bool = false
+    @State private var finishing: Bool = false
+    
     // MARK: Data In
     @Environment(\.words) var words
     
     // MARK: - Body
     var body: some View {
+        Group {
+            if let game {
+                gameContent(for: game)
+            } else {
+                ProgressView("Loading words...")
+                    .font(.title2)
+            }
+        }
+        .task {
+            await waitForWordsAndStartGame()
+        }
+    }
+    
+    // MARK: - Functions
+    
+    func waitForWordsAndStartGame() async {
+        while words.count == 0 {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        
+        withAnimation {
+            game = Wordik(wordLength: [3, 4, 5, 6].randomElement() ?? 4)
+        }
+    }
+    
+    @ViewBuilder
+    func gameContent(for game: Wordik) -> some View {
         ZStack {
-            LinearGradient(
-                colors: [.mint, .orange],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
             VStack {
                 restartButton
                 WordView(word: game.masterWord)
+                    .transaction { transaction in
+                        transaction.animation = .none
+                    }
                 ScrollView {
-                    WordView(word: game.guess, selection: $selection) {
-                        hintButton
+                    if !game.isOver || restarting {
+                        WordView(word: game.guess, selection: $selection) {
+                            hintButton
+                        }
+                        .opacity(guessing ? 0 : 1)
+                        .opacity(restarting ? 0 : 1)
+                        .animation(nil, value: game.attempts.count)
                     }
                     ForEach(game.attempts.indices.reversed(), id: \.self) { index in
                         WordView(word: game.attempts[index])
+                            .transition(.attempts(game.isOver))
                     }
                 }
                 .scrollIndicators(.hidden)
-                LetterChooser(choices: game.letterChoices) { letter in
-                    game.changeGuessLetter(letter, at: selection)
-                    selection = (selection + 1) % game.wordLength
+                if !game.isOver {
+                    Group {
+                        LetterChooser(choices: game.letterChoices, onChoose: changeLetter)
+                        guessButton
+                    }
+                    .transition(.letterChooser)
                 }
-                guessButton
             }
             .padding()
         }
+        .background(Color(.systemGroupedBackground))
     }
+    
+    func changeLetter(_ letter: Letter) {
+        self.game?.changeGuessLetter(letter, at: selection)
+        selection = (selection + 1) % (game?.wordLength ?? 0)
+    }
+    
+    // MARK: - Computed properties UI
     
     var guessButton: some View {
         Button("Guess") {
-            game.attemptGuess()
+            withAnimation(.guess) {
+                guessing = true
+                self.game?.attemptGuess()
+                if game?.isOver == true {
+                    finishing = true
+                }
+            } completion: {
+                withAnimation {
+                    guessing = false
+                    finishing = false
+                }
+            }
         }
         .font(.system(size: GuessButton.fontSize))
         .foregroundStyle(.green)
-        .disabled(!game.isActive)
+        .disabled(!(self.game?.isActive ?? false))
     }
     
     var hintButton: some View {
-        Button("Hint") {
-            game.useHint()
+        Button("Hint", systemImage: "eyes") {
+            withAnimation(.selection) {
+                if let hintedIndex = game?.useHint() {
+                    selection = hintedIndex
+                }
+            }
         }
+        .labelStyle(.iconOnly)
         .font(.system(size: HintButton.maxFontSize))
         .minimumScaleFactor(HintButton.minimumScaleFactor)
-        .foregroundStyle(.white)
+        .foregroundStyle(.primary)
     }
     
     var restartButton: some View {
         Button("Restart") {
-            game.restart()
+            withAnimation(.restart) {
+                restarting = true
+                game?.attempts.removeAll()
+            } completion: {
+                var noAnimation = Transaction()
+                noAnimation.disablesAnimations = true
+                withTransaction(noAnimation) {
+                    game?.restart()
+                    selection = 0
+                }
+                withAnimation(.restart) {
+                    restarting = false
+                }
+            }
         }
         .font(.system(size: RestartButton.fontSize))
         .foregroundStyle(.red)
